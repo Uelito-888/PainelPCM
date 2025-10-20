@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu PCM</title>
+
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+  h1 { margin-bottom: 20px; font-size: 2.2em; text-align:center; }
+  .menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    width: 100vw;
+    height: calc(100vh - 80px);
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .menu button {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid #fff;
+    border-radius: 15px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.2em;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .menu button:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    background: rgba(255,255,255,0.2);
+  }
+  .lista-maquinas {
+    margin-top: 20px;
+    background: rgba(255,255,255,0.1);
+    padding: 25px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 900px;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .maquina-btn {
+    width:100%; 
+    background: rgba(255,255,255,0.2); 
+    color:white; 
+    padding:10px; 
+    margin-bottom:5px;
+    border-radius:10px;
+    border:none;
+    cursor:pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .maquina-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+  .voltar-btn, .status-btn {
+    background: #fff; color:#1e3c72; padding:10px 20px; margin-top:15px; font-size:1em;
+    border-radius:10px; cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;
+  }
+  @keyframes fadeIn { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
+</style>
+</head>
+<body>
+
+<h1>Selecione a Área</h1>
+
+<div class="menu" id="menu">
+  <button onclick="mostrarMaquinas('GD')">GD's</button>
+  <button onclick="mostrarMaquinas('EK')">EK's</button>
+  <button onclick="mostrarMaquinas('EW')">EW's</button>
+  <button onclick="mostrarMaquinas('ST2')">ST2's</button>
+  <button onclick="mostrarMaquinas('Outros')">Outros</button>
+</div>
+
+<div class="lista-maquinas" id="lista-maquinas"></div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxXQd6vyNEUmsMQ4BD0A345Jx8dQIAzj0EJ2K2BS3KnEBfyKsPvr3guvEwaItog7bFww/exec";
+
+// Máquinas por área
+const maquinasPorArea = {
+  "GD": ["Máquina GD-01","Máquina GD-02","Máquina GD-03","Máquina GD-04","Máquina GD-05","Máquina GD-06","Máquina GD-07","Máquina GD-08","Máquina GD-09","Máquina GD-10","Máquina GD-11","Máquina GD-12","Máquina GD-13","Máquina GD-14","Máquina GD-15","Máquina GD-16","Máquina GD-17","Máquina GD-18","Máquina GD-19"],
+  "EK": ["Máquina EK-01","Máquina EK-02","Máquina EK-03","Máquina EK-04","Máquina EK-05","Máquina EK-06","Máquina EK-07","Máquina EK-08","Máquina EK-09","Máquina EK-10","Máquina EK-11","Máquina EK-12","Máquina EK-13","Máquina EK-14"],
+  "EW": ["Máquina EW-01","Máquina EW-02","Máquina EW-03","Máquina EW-04","Máquina EW-05","Máquina EW-06","Máquina EW-07","Máquina EW-08","Máquina EW-09","Máquina EW-10","Máquina EW-11","Máquina EW-12","Máquina EW-13","Máquina EW-14"],
+  "ST2": ["Máquina ST2-01","Máquina ST2-02","Máquina ST2-03","Máquina ST2-04"],
+  "Outros": ["Cozinhador 3000","Cozinhador 1000","Flowpack 03", "Flowpack 04"]
+};
+
+let statusMaquinas = {};
+let ultimaArea = null;
+
+// Buscar dados da planilha
+async function carregarStatusOnline() {
+  const res = await fetch(SCRIPT_URL);
+  statusMaquinas = {};
+  const data = await res.json();
+  data.forEach(item => statusMaquinas[item.maquina] = { status: item.status, descricao: item.descricao });
+}
+
+// Salvar no Apps Script
+async function salvarStatusOnline(maquina, status, descricao) {
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify({ maquina, status, descricao })
+  });
+}
+
+// Mostrar máquinas
+async function mostrarMaquinas(area){
+  ultimaArea = area;
+  const listaDiv = document.getElementById("lista-maquinas");
+  const menu = document.getElementById("menu");
+  await carregarStatusOnline();
+  const maquinas = maquinasPorArea[area];
+
+  let conteudo = `<h2>Máquinas da área ${area}</h2><ul>`;
+  maquinas.forEach(maquina=>{
+    const st = statusMaquinas[maquina]?.status || "Rodando";
+    conteudo += `<li><button class="maquina-btn" onclick="abrirStatus('${maquina}')">${maquina} (${st})</button></li>`;
+  });
+  conteudo += `</ul><button class="voltar-btn" onclick="voltarMenu()">⬅ Voltar</button>`;
+  listaDiv.innerHTML = conteudo;
+  listaDiv.style.display = "block";
+  menu.style.display = "none";
+}
+
+// Abrir status de uma máquina
+function abrirStatus(maquina){
+  const listaDiv = document.getElementById("lista-maquinas");
+  const statusAtual = statusMaquinas[maquina]?.status || "";
+  const descricao = statusMaquinas[maquina]?.descricao || "";
+  const opcoes = ["Parada","Em Manutenção","Aguardando Mecânico","Aguardando Eletricista","Rodando"]
+    .map(s=>`<option value="${s}" ${s===statusAtual?'selected':''}>${s}</option>`).join("");
+
+  listaDiv.innerHTML = `
+    <h2>${maquina}</h2>
+    <label>Status:</label>
+    <select id="statusSelect">${opcoes}</select><br><br>
+    <label>Descrição:</label>
+    <textarea id="descricaoInput" rows="3" style="width:100%; border-radius:10px;">${descricao}</textarea>
+    <br><br>
+    <button class="status-btn" onclick="salvarStatus('${maquina}')">Salvar</button>
+    <button class="voltar-btn" onclick="mostrarMaquinas('${ultimaArea}')">⬅ Voltar</button>
+  `;
+}
+
+// Salvar status
+async function salvarStatus(maquina){
+  const status = document.getElementById("statusSelect").value;
+  const descricao = document.getElementById("descricaoInput").value;
+  await salvarStatusOnline(maquina, status, descricao);
+  alert(`Status de ${maquina} atualizado para "${status}"`);
+  mostrarMaquinas(ultimaArea);
+}
+
+// Voltar ao menu
+function voltarMenu(){
+  document.getElementById("lista-maquinas").style.display="none";
+  document.getElementById("menu").style.display="grid";
+}
+</script>
+
+</body>
+</html>
